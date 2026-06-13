@@ -1,7 +1,9 @@
-import sys
-import stat
+import argparse
 import errno
-from mfusepy import FUSE, Operations, FuseOSError
+import stat
+import sys
+
+from mfusepy import FUSE, FuseOSError, Operations
 
 
 class QrFS(Operations):
@@ -187,22 +189,42 @@ class QrFS(Operations):
         return None
 
 
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        sys.exit(1)
+def main():
+    parser = argparse.ArgumentParser(
+        description="Launch the QrFS virtual filesystem."
+    )
+    parser.add_argument(
+        "mountpoint",
+        type=str,
+        help="The local directory path where the filesystem will be attached."
+    )
+    parser.add_argument(
+        "--fsname",
+        type=str,
+        default="qrfs",
+        help="The filesystem name visible in system mount utilities."
+    )
+    parser.add_argument(
+        "--subtype",
+        type=str,
+        default="qrfs",
+        help="The filesystem subtype classification."
+    )
 
-    mountpoint = sys.argv[1]
+    args = parser.parse_args()
 
     try:
         FUSE(
             QrFS(),
-            mountpoint,
+            args.mountpoint,
             foreground=True,
             nothreads=True,
-            fsname="qrfs",
-            subtype="qrfs"
+            fsname=args.fsname,
+            subtype=args.subtype
         )
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception:
+    except RuntimeError as e:
+        print("Error:", e)
         sys.exit(1)
+
+if __name__ == '__main__':
+    main()
