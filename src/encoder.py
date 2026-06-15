@@ -6,7 +6,7 @@ import qrcode
 def path_to_url(path):
     return path  # For now
 
-def url_to_qr(url):
+def url_to_qr(url, media_type):
     buffer = io.BytesIO()
     # img = qrcode.make(url)
     # img.save(buffer, format="PNG")
@@ -16,7 +16,7 @@ def url_to_qr(url):
     raw_bytes = buffer.getvalue()
     return raw_bytes
 
-def path_to_qr(path):
+def path_to_qr(path, media_type):
     url = path_to_url(path)
-    qr = url_to_qr(url)
+    qr = url_to_qr(url, media_type)
     return qr

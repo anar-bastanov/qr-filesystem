@@ -8,17 +8,15 @@ import sys
 
 from mfusepy import FUSE, FuseOSError, log_callback, Operations
 
-from encoder import path_to_qr
-
 
 class QrFS(Operations):
-    _CACHE_SIZE = 256
-
     use_ns = True
 
-    def __init__(self, debug_mode=False):
-        self.get_qr = lru_cache(maxsize=self._CACHE_SIZE)(path_to_qr)
+    def __init__(self, media_type="bmp", max_cache=256, debug_mode=False):
+        from encoder import path_to_qr  # Do not directly call path_to_qr elsewhere
+        self.get_qr = lru_cache(maxsize=max_cache)(path_to_qr)
 
+        self._media_type = media_type
         self._debug_mode = debug_mode
         self._uid = os.getuid() if hasattr(os, "getuid") else 0
         self._gid = os.getgid() if hasattr(os, "getgid") else 0
@@ -63,7 +61,7 @@ class QrFS(Operations):
     @log_callback
     def getattr(self, path, fh=None):
         if path.endswith("/..."):
-            qr = self.get_qr(path)
+            qr = self.get_qr(path, self._media_type)
             attrs = self._attr_file.copy()  # Not sure if .copy() can be omitted
             attrs["st_size"] = len(qr)
             return attrs
@@ -81,7 +79,7 @@ class QrFS(Operations):
 
     @log_callback
     def read(self, path, size, offset, fh):
-        qr = self.get_qr(path)
+        qr = self.get_qr(path, self._media_type)
         return qr[offset:offset + size]
 
     @log_callback
@@ -90,12 +88,23 @@ class QrFS(Operations):
             logging.basicConfig(level=logging.DEBUG)
 
     def destroy(self, path):
-        print("\n--- Cache Stats ---")
-        print(self.get_qr.cache_info())
-        print("-------------------\n")
+        if self._debug_mode:
+            print("\n--- Cache Stats ---")
+            print(self.get_qr.cache_info())
+            print("-------------------\n")
 
 
 def main():
+    def int_range(imin, imax):
+        def parse(value):
+            n = int(value)
+            if n < imin:
+                raise argparse.ArgumentTypeError(f"value less than {imin}")
+            if n > imax:
+                raise argparse.ArgumentTypeError(f"value greater than {imax}")
+            return n
+        return parse
+
     parser = argparse.ArgumentParser(
         description="Launch the QrFS virtual filesystem."
     )
@@ -117,6 +126,19 @@ def main():
         help="The filesystem subtype classification."
     )
     parser.add_argument(
+        "--media-type",
+        type=str,
+        choices=("raw", "bmp", "png"),
+        default="bmp",
+        help="File format in which to stream QR codes."
+    )
+    parser.add_argument(
+        "--max-cache",
+        type=int_range(0, 2**12),
+        default=256,
+        help="Number of QR codes to cache in memory."
+    )
+    parser.add_argument(
         "--debug",
         dest="debug_mode",
         action="store_true",
@@ -127,7 +149,7 @@ def main():
 
     try:
         FUSE(
-            QrFS(args.debug_mode),
+            QrFS(args.media_type, args.max_cache, args.debug_mode),
             args.mountpoint,
             foreground=True,
             nothreads=True,
