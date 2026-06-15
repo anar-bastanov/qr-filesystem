@@ -8,15 +8,16 @@ import sys
 
 from mfusepy import FUSE, FuseOSError, log_callback, Operations
 
+from converter import get_path_to_qr_converter
+
 
 class QrFS(Operations):
     use_ns = True
 
     def __init__(self, media_type="bmp", max_cache=256, debug_mode=False):
-        from encoder import path_to_qr  # Do not directly call path_to_qr elsewhere
-        self.get_qr = lru_cache(maxsize=max_cache)(path_to_qr)
+        converter = get_path_to_qr_converter(media_type)
+        self.get_qr = lru_cache(maxsize=max_cache)(converter)
 
-        self._media_type = media_type
         self._debug_mode = debug_mode
         self._uid = os.getuid() if hasattr(os, "getuid") else 0
         self._gid = os.getgid() if hasattr(os, "getgid") else 0
@@ -61,7 +62,7 @@ class QrFS(Operations):
     @log_callback
     def getattr(self, path, fh=None):
         if path.endswith("/..."):
-            qr = self.get_qr(path, self._media_type)
+            qr = self.get_qr(path)
             attrs = self._attr_file.copy()  # Not sure if .copy() can be omitted
             attrs["st_size"] = len(qr)
             return attrs
@@ -79,7 +80,7 @@ class QrFS(Operations):
 
     @log_callback
     def read(self, path, size, offset, fh):
-        qr = self.get_qr(path, self._media_type)
+        qr = self.get_qr(path)
         return qr[offset:offset + size]
 
     @log_callback
