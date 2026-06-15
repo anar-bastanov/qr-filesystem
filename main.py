@@ -55,19 +55,21 @@ class QrFS(Operations):
 
     @log_callback
     def getattr(self, path, fh=None):
-        if path.endswith("/qr.bmp"):
+        if path.endswith("/..."):
             return self._attr_file
+        if path[-1] == '.' and path.rstrip('.')[-1] == '/':
+            raise FuseOSError(errno.ENOENT)
         return self._attr_dir
 
     def readdir(self, path, fh):
-        return ['.', '..', "qr.bmp"]
+        return ['.', '..', "..."]
 
     def readdir_with_offset(self, path, offset, fh):
-        return ['.', '..', "qr.bmp"]
+        return ['.', '..', "..."]
 
     @log_callback
     def read(self, path, size, offset, fh):
-        return b"a" * 15 + b'\n'
+        return (b"a" * 15 + b'\n')[offset:offset + size]
 
     @log_callback
     def init(self, path):
