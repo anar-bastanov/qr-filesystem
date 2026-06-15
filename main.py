@@ -13,8 +13,8 @@ class QrFS(Operations):
 
     def __init__(self, debug_mode=False):
         self._debug_mode = debug_mode
-        self._uid = os.getuid() if hasattr(os, 'getuid') else 0
-        self._gid = os.getgid() if hasattr(os, 'getgid') else 0
+        self._uid = os.getuid() if hasattr(os, "getuid") else 0
+        self._gid = os.getgid() if hasattr(os, "getgid") else 0
         self._attr_dir = {
             "st_mode": (stat.S_IFDIR | 0o555),
             "st_nlink": 2,
@@ -38,15 +38,15 @@ class QrFS(Operations):
             "st_gid": self._gid,
         }
         self._stat =  {
-            'f_bsize': 4096,
-            'f_frsize': 4096,
-            'f_blocks': 2**20,
-            'f_bfree': 0,
-            'f_bavail': 0,
-            'f_files': 2**30,
-            'f_ffree': 0,
-            'f_favail': 0,
-            'f_namemax': 255
+            "f_bsize": 4096,
+            "f_frsize": 4096,
+            "f_blocks": 2**20,
+            "f_bfree": 0,
+            "f_bavail": 0,
+            "f_files": 2**30,
+            "f_ffree": 0,
+            "f_favail": 0,
+            "f_namemax": 255
         }
 
     @log_callback
@@ -57,19 +57,19 @@ class QrFS(Operations):
     def getattr(self, path, fh=None):
         if path.endswith("/..."):
             return self._attr_file
-        if path[-1] == '.' and path.rstrip('.')[-1] == '/':
+        if path[-1] == '.' and path.rstrip(".")[-1] == '/':
             raise FuseOSError(errno.ENOENT)
         return self._attr_dir
 
     def readdir(self, path, fh):
-        return ['.', '..', "..."]
+        return [".", "..", "..."]
 
     def readdir_with_offset(self, path, offset, fh):
-        return ['.', '..', "..."]
+        return [".", "..", "..."]
 
     @log_callback
     def read(self, path, size, offset, fh):
-        return (b"a" * 15 + b'\n')[offset:offset + size]
+        return (b'a' * 15 + b"\n")[offset:offset + size]
 
     @log_callback
     def init(self, path):
@@ -124,5 +124,5 @@ def main():
         print("Error:", e)
         sys.exit(1)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
