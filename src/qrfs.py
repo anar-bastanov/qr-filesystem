@@ -1,5 +1,6 @@
 import argparse
 import errno
+from functools import lru_cache
 import logging
 import os
 import stat
@@ -7,11 +8,17 @@ import sys
 
 from mfusepy import FUSE, FuseOSError, log_callback, Operations
 
+from encoder import path_to_qr
+
 
 class QrFS(Operations):
+    _CACHE_SIZE = 256
+
     use_ns = True
 
     def __init__(self, debug_mode=False):
+        self.get_qr = lru_cache(maxsize=self._CACHE_SIZE)(path_to_qr)
+
         self._debug_mode = debug_mode
         self._uid = os.getuid() if hasattr(os, "getuid") else 0
         self._gid = os.getgid() if hasattr(os, "getgid") else 0
@@ -56,9 +63,14 @@ class QrFS(Operations):
     @log_callback
     def getattr(self, path, fh=None):
         if path.endswith("/..."):
-            return self._attr_file
+            qr = self.get_qr(path)
+            attrs = self._attr_file.copy()  # Not sure if .copy() can be omitted
+            attrs["st_size"] = len(qr)
+            return attrs
+
         if path[-1] == '.' and path.rstrip(".")[-1] == '/':
             raise FuseOSError(errno.ENOENT)
+
         return self._attr_dir
 
     def readdir(self, path, fh):
@@ -69,7 +81,8 @@ class QrFS(Operations):
 
     @log_callback
     def read(self, path, size, offset, fh):
-        return (b'a' * 15 + b"\n")[offset:offset + size]
+        qr = self.get_qr(path)
+        return qr[offset:offset + size]
 
     @log_callback
     def init(self, path):
@@ -77,7 +90,9 @@ class QrFS(Operations):
             logging.basicConfig(level=logging.DEBUG)
 
     def destroy(self, path):
-        pass
+        print("\n--- Cache Stats ---")
+        print(self.get_qr.cache_info())
+        print("-------------------\n")
 
 
 def main():
