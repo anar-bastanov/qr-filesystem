@@ -1,23 +1,26 @@
 import argparse
-import errno
 from functools import lru_cache
 import logging
 import os
 import stat
 import sys
 
-from mfusepy import FUSE, FuseOSError, log_callback, Operations
+from mfusepy import FUSE, log_callback, Operations
 
+import argparse_types
 from converter import get_path_to_qr_converter
 
 
 class QrFS(Operations):
     use_ns = True
 
-    def __init__(self, media_type="bmp", max_cache=256, debug_mode=False):
-        converter = get_path_to_qr_converter(media_type)
+    def __init__(self, filename="...", media_type="bmp", qr_border=1, max_cache=256, debug_mode=False):
+        converter = get_path_to_qr_converter(filename, media_type, qr_border)
         self.get_qr = lru_cache(maxsize=max_cache)(converter)
 
+        self._filename = filename
+        self._filename_path = "/" + filename
+        self._directory = [".", "..", filename]
         self._debug_mode = debug_mode
         self._uid = os.getuid() if hasattr(os, "getuid") else 0
         self._gid = os.getgid() if hasattr(os, "getgid") else 0
@@ -61,22 +64,22 @@ class QrFS(Operations):
 
     @log_callback
     def getattr(self, path, fh=None):
-        if path.endswith("/..."):
+        if path.endswith(self._filename_path):
             qr = self.get_qr(path)
             attrs = self._attr_file.copy()  # Not sure if .copy() can be omitted
             attrs["st_size"] = len(qr)
             return attrs
 
-        if path[-1] == '.' and path.rstrip(".")[-1] == '/':
-            raise FuseOSError(errno.ENOENT)
+        # if path[-1] == '.' and path.rstrip(".")[-1] == '/':
+        #     raise FuseOSError(errno.ENOENT)
 
         return self._attr_dir
 
     def readdir(self, path, fh):
-        return [".", "..", "..."]
+        return self._directory
 
     def readdir_with_offset(self, path, offset, fh):
-        return [".", "..", "..."]
+        return self._directory
 
     @log_callback
     def read(self, path, size, offset, fh):
@@ -96,61 +99,69 @@ class QrFS(Operations):
 
 
 def main():
-    def int_range(imin, imax):
-        def parse(value):
-            n = int(value)
-            if n < imin:
-                raise argparse.ArgumentTypeError(f"value less than {imin}")
-            if n > imax:
-                raise argparse.ArgumentTypeError(f"value greater than {imax}")
-            return n
-        return parse
-
     parser = argparse.ArgumentParser(
         description="Launch the QrFS virtual filesystem."
     )
     parser.add_argument(
         "mountpoint",
         type=str,
-        help="The local directory path where the filesystem will be attached."
+        help="local directory path where the filesystem will be attached"
     )
     parser.add_argument(
-        "--fsname",
-        type=str,
-        default="qrfs",
-        help="The filesystem name visible in system mount utilities."
-    )
-    parser.add_argument(
-        "--subtype",
-        type=str,
-        default="qrfs",
-        help="The filesystem subtype classification."
+        "--filename",
+        type=argparse_types.str_except("\0/"),
+        default="...",
+        help="name of the special QR file"
     )
     parser.add_argument(
         "--media-type",
         type=str,
         choices=("raw", "bmp", "png"),
         default="bmp",
-        help="File format in which to stream QR codes."
+        help="file format in which to stream QR codes"
+    )
+    parser.add_argument(
+        "--qr-border",
+        type=argparse_types.int_range(0, 16),
+        default=1,
+        help="size of borders around the images in pixels"
     )
     parser.add_argument(
         "--max-cache",
-        type=int_range(0, 2**12),
+        type=argparse_types.int_range(0, 2**12),
         default=256,
-        help="Number of QR codes to cache in memory."
+        help="number of QR codes to cache in memory"
+    )
+    parser.add_argument(
+        "--fsname",
+        type=str,
+        default="qrfs",
+        help="filesystem name visible in system mount utilities"
+    )
+    parser.add_argument(
+        "--subtype",
+        type=str,
+        default="qrfs",
+        help="filesystem subtype classification"
     )
     parser.add_argument(
         "--debug",
         dest="debug_mode",
         action="store_true",
-        help="Enable debug messages."
+        help="enable debug messages"
     )
 
     args = parser.parse_args()
 
     try:
         FUSE(
-            QrFS(args.media_type, args.max_cache, args.debug_mode),
+            QrFS(
+                args.filename,
+                args.media_type,
+                args.qr_border,
+                args.max_cache,
+                args.debug_mode
+            ),
             args.mountpoint,
             foreground=True,
             nothreads=True,
@@ -161,6 +172,7 @@ def main():
     except RuntimeError as e:
         print("Error:", e)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
