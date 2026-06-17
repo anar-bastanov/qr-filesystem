@@ -11,8 +11,16 @@ from converter import get_path_to_qr_converter
 class QrFS(Operations):
     use_ns = True
 
-    def __init__(self, filename="...", media_type="bmp", qr_border=1, max_cache=256, debug_mode=False):
-        converter = get_path_to_qr_converter(filename, media_type, qr_border)
+    def __init__(
+        self,
+        filename="...",
+        media_type="bmp",
+        qr_scale=10,
+        qr_border=1,
+        max_cache=256,
+        debug_mode=False
+    ):
+        converter = get_path_to_qr_converter(filename, media_type, qr_scale, qr_border)
         self.get_qr = lru_cache(maxsize=max_cache)(converter)
 
         self._filename = filename

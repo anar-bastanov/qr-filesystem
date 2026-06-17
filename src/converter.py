@@ -3,7 +3,7 @@ import io
 import qrcode
 
 
-def get_path_to_qr_converter(filename, media_type, qr_border):
+def get_path_to_qr_converter(filename, media_type, qr_scale, qr_border):
     offset = -(len(filename) + 1)
 
     def path_to_url(path):
@@ -12,7 +12,7 @@ def get_path_to_qr_converter(filename, media_type, qr_border):
     def path_to_qr_raw(path):
         url = path_to_url(path)
         buffer = io.BytesIO()
-        img = qrcode.make(url, border=qr_border)
+        img = qrcode.make(url, box_size=qr_scale, border=qr_border)
         for row in img.modules:
             buffer.write(bytes(row))
             buffer.write(b"\n")
@@ -21,14 +21,14 @@ def get_path_to_qr_converter(filename, media_type, qr_border):
     def path_to_qr_bmp(path):
         url = path_to_url(path)
         buffer = io.BytesIO()
-        img = qrcode.make(url, border=qr_border)
+        img = qrcode.make(url, box_size=qr_scale, border=qr_border)
         img.save(buffer, format="BMP")
         return buffer.getvalue()
 
     def path_to_qr_png(path):
         url = path_to_url(path)
         buffer = io.BytesIO()
-        img = qrcode.make(url, border=qr_border)
+        img = qrcode.make(url, box_size=qr_scale, border=qr_border)
         img.save(buffer, format="PNG")
         return buffer.getvalue()
 
@@ -40,4 +40,4 @@ def get_path_to_qr_converter(filename, media_type, qr_border):
         case "png":
             return path_to_qr_png
         case _:
-            raise ValueError("Unsupported media type")
+            raise ValueError("unsupported media type")

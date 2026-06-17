@@ -9,7 +9,8 @@ from qrfs import QrFS
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Launch the QrFS virtual filesystem."
+        description="Launch the QrFS virtual filesystem.",
+        formatter_class=argparse_types.CustomFormatter
     )
     parser.add_argument(
         "mountpoint",
@@ -17,29 +18,40 @@ def main():
         help="local directory path where the filesystem will be attached"
     )
     parser.add_argument(
-        "--filename",
+        "-f", "--filename",
         type=argparse_types.str_except("\0/"),
         default="...",
         help="name of the special QR file"
     )
     parser.add_argument(
-        "--media-type",
+        "-t", "--media-type",
         type=str,
         choices=("raw", "bmp", "png"),
-        default="bmp",
-        help="file format in which to stream QR codes"
+        default="png",
+        help=(
+            "file format for the QR stream:\n"
+            "  raw : newline-separated rows of \\x00/\\x01 bytes; ignores QR_SCALE and QR_BORDER\n"
+            "  bmp : uncompressed Bitmap image format\n"
+            "  png : compressed PNG image format"
+        )
     )
     parser.add_argument(
-        "--qr-border",
+        "-s", "--qr-scale",
+        type=argparse_types.int_range(1, 32),
+        default=10,
+        help="pixel width and height of each cell in QR codes"
+    )
+    parser.add_argument(
+        "-b", "--qr-border",
         type=argparse_types.int_range(0, 16),
         default=1,
-        help="size of borders around the images in pixels"
+        help="number of padding cells to add around QR codes"
     )
     parser.add_argument(
-        "--max-cache",
+        "-c", "--max-cache",
         type=argparse_types.int_range(0, 2**12),
         default=256,
-        help="number of QR codes to cache in memory"
+        help="number of most recent QR codes to cache in memory"
     )
     parser.add_argument(
         "--fsname",
@@ -54,7 +66,7 @@ def main():
         help="filesystem subtype classification"
     )
     parser.add_argument(
-        "--debug",
+        "-d", "--debug",
         dest="debug_mode",
         action="store_true",
         help="enable debug messages"
@@ -67,6 +79,7 @@ def main():
             QrFS(
                 args.filename,
                 args.media_type,
+                args.qr_scale,
                 args.qr_border,
                 args.max_cache,
                 args.debug_mode
