@@ -54,6 +54,11 @@ def main():
         help="number of most recent QR codes to cache in memory"
     )
     parser.add_argument(
+        "--no-allow-other",
+        action="store_true",
+        help="restrict filesystem access exclusively to the current user"
+    )
+    parser.add_argument(
         "--fsname",
         type=str,
         default="qrfs",
@@ -73,6 +78,7 @@ def main():
     )
 
     args = parser.parse_args()
+    allow_other = not args.no_allow_other
 
     try:
         FUSE(
@@ -89,7 +95,10 @@ def main():
             nothreads=True,
             fsname=args.fsname,
             subtype=args.subtype,
-            ro=True  # Mount as a read-only filesystem
+            ro=True,  # Mount as a read-only filesystem
+            allow_other=allow_other,
+            default_permissions=allow_other,
+            kernel_cache=True
         )
     except RuntimeError as e:
         print("Error:", e)
