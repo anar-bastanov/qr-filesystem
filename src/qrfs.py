@@ -1,9 +1,9 @@
 from functools import lru_cache
 import logging
-import os
+import random
 import stat
 
-from mfusepy import log_callback, Operations
+from mfusepy import fuse_get_context, log_callback, Operations
 
 from converter import get_path_to_qr_converter
 
@@ -11,32 +11,26 @@ from converter import get_path_to_qr_converter
 class QrFS(Operations):
     use_ns = True
 
+    _DIRNAME_CHARSET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
+
     def __init__(
         self,
         filename="...",
         media_type="bmp",
         qr_scale=10,
         qr_border=1,
+        ghost_dir_count=100,
         allow_backslash=False,
         max_cache=256,
         debug_mode=False
     ):
-        self.get_qr = lru_cache(maxsize=max_cache)(
-            get_path_to_qr_converter(
-                filename,
-                media_type,
-                qr_scale,
-                qr_border,
-                allow_backslash
-            )
-        )
+        uid, gid, _ = fuse_get_context()
 
         self._filename = filename
         self._filename_path = "/" + filename
-        self._directory = [".", "..", filename]
+        self._dir_items = [".", "..", filename]
+        self._ghost_dir_count = ghost_dir_count
         self._debug_mode = debug_mode
-        self._uid = os.getuid() if hasattr(os, "getuid") else 0
-        self._gid = os.getgid() if hasattr(os, "getgid") else 0
         self._attr_dir = {
             "st_mode": (stat.S_IFDIR | 0o555),
             "st_nlink": 2,
@@ -45,8 +39,8 @@ class QrFS(Operations):
             "st_mtime": 946684800 * 1e9,
             "st_ctime": 946684800 * 1e9,
             "st_birthtime": 946684800 * 1e9,  # Birthtime not supported?
-            "st_uid": self._uid,
-            "st_gid": self._gid,
+            "st_uid": uid,
+            "st_gid": gid,
         }
         self._attr_file = {
             "st_mode": (stat.S_IFREG | 0o444),
@@ -56,8 +50,8 @@ class QrFS(Operations):
             "st_mtime": 946684800 * 1e9,
             "st_ctime": 946684800 * 1e9,
             "st_birthtime": 946684800 * 1e9,
-            "st_uid": self._uid,
-            "st_gid": self._gid,
+            "st_uid": uid,
+            "st_gid": gid,
         }
         self._stat =  {
             "f_bsize": 4096,
@@ -70,6 +64,16 @@ class QrFS(Operations):
             "f_favail": 0,
             "f_namemax": 255
         }
+
+        self.get_qr = lru_cache(maxsize=max_cache)(
+            get_path_to_qr_converter(
+                filename,
+                media_type,
+                qr_scale,
+                qr_border,
+                allow_backslash
+            )
+        )
 
     @log_callback
     def statfs(self, path):
@@ -86,10 +90,20 @@ class QrFS(Operations):
         return self._attr_dir
 
     def readdir(self, path, fh):
-        return self._directory
+        yield ".", self._attr_dir, 1
+        yield "..", self._attr_dir, 2
+        yield self._filename, None, 3
+
+        for offset in range(4, self._ghost_dir_count + 4):
+            yield QrFS._get_random_dirname(), self._attr_dir, offset
 
     def readdir_with_offset(self, path, offset, fh):
-        return self._directory
+        if offset < 1: yield ".", self._attr_dir, 1
+        if offset < 2: yield "..", self._attr_dir, 2
+        if offset < 3: yield self._filename, None, 3
+
+        for offset in range(max(4, offset + 1), self._ghost_dir_count + 4):
+            yield QrFS._get_random_dirname(), self._attr_dir, offset
 
     @log_callback
     def read(self, path, size, offset, fh):
@@ -104,3 +118,8 @@ class QrFS(Operations):
     def destroy(self, path):
         if self._debug_mode:
             print("\nCache Stats:", self.get_qr.cache_info())
+
+    @staticmethod
+    def _get_random_dirname():
+        # No options to configure this for now
+        return "".join(random.choices(QrFS._DIRNAME_CHARSET, k=random.randint(4, 16)))

@@ -48,6 +48,13 @@ def main():
         help="number of padding cells to add around QR codes"
     )
     parser.add_argument(
+        "-g", "--ghost-dirs",
+        dest="ghost_dir_count",
+        type=argparse_types.int_range(0, 10000),
+        default=100,
+        help="number of random directory names generated when listing"
+    )
+    parser.add_argument(
         "--allow-backslash",
         action="store_true",
         help="preserve backslashes instead of converting them to forward slashes"
@@ -92,6 +99,7 @@ def main():
                 media_type=args.media_type,
                 qr_scale=args.qr_scale,
                 qr_border=args.qr_border,
+                ghost_dir_count=args.ghost_dir_count,
                 allow_backslash=args.allow_backslash,
                 max_cache=args.max_cache,
                 debug_mode=args.debug_mode
