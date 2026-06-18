@@ -19,8 +19,8 @@ def main():
     )
     parser.add_argument(
         "-f", "--filename",
-        type=argparse_types.str_except("\0/"),
-        default="...",
+        type=argparse_types.str_except("\0/\\"),
+        default="qr.png",
         help="name of the special QR file"
     )
     parser.add_argument(
@@ -48,27 +48,32 @@ def main():
         help="number of padding cells to add around QR codes"
     )
     parser.add_argument(
+        "--allow-backslash",
+        action="store_true",
+        help="preserve backslashes instead of converting them to forward slashes"
+    )
+    parser.add_argument(
         "-c", "--max-cache",
         type=argparse_types.int_range(0, 2**12),
         default=256,
         help="number of most recent QR codes to cache in memory"
     )
     parser.add_argument(
-        "--no-allow-other",
-        action="store_true",
-        help="restrict filesystem access exclusively to the current user"
-    )
-    parser.add_argument(
-        "--fsname",
+        "-n", "--fsname",
         type=str,
         default="qrfs",
         help="filesystem name visible in system mount utilities"
     )
     parser.add_argument(
-        "--subtype",
+        "-u", "--subtype",
         type=str,
         default="qrfs",
         help="filesystem subtype classification"
+    )
+    parser.add_argument(
+        "--no-allow-other",
+        action="store_true",
+        help="restrict filesystem access exclusively to the current user"
     )
     parser.add_argument(
         "-d", "--debug",
@@ -83,12 +88,13 @@ def main():
     try:
         FUSE(
             QrFS(
-                args.filename,
-                args.media_type,
-                args.qr_scale,
-                args.qr_border,
-                args.max_cache,
-                args.debug_mode
+                filename=args.filename,
+                media_type=args.media_type,
+                qr_scale=args.qr_scale,
+                qr_border=args.qr_border,
+                allow_backslash=args.allow_backslash,
+                max_cache=args.max_cache,
+                debug_mode=args.debug_mode
             ),
             args.mountpoint,
             foreground=True,

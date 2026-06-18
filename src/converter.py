@@ -3,11 +3,21 @@ import io
 import qrcode
 
 
-def get_path_to_qr_converter(filename, media_type, qr_scale, qr_border):
+def get_path_to_qr_converter(
+    filename,
+    media_type,
+    qr_scale,
+    qr_border,
+    allow_backslash
+):
     offset = -(len(filename) + 1)
 
-    def path_to_url(path):
-        return path[1:offset]
+    if allow_backslash:
+        def path_to_url(path):
+            return path[1:offset]
+    else:
+        def path_to_url(path):
+            return path[1:offset].replace("\\", "/")
 
     def path_to_qr_raw(path):
         url = path_to_url(path)

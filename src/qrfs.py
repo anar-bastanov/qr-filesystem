@@ -17,11 +17,19 @@ class QrFS(Operations):
         media_type="bmp",
         qr_scale=10,
         qr_border=1,
+        allow_backslash=False,
         max_cache=256,
         debug_mode=False
     ):
-        converter = get_path_to_qr_converter(filename, media_type, qr_scale, qr_border)
-        self.get_qr = lru_cache(maxsize=max_cache)(converter)
+        self.get_qr = lru_cache(maxsize=max_cache)(
+            get_path_to_qr_converter(
+                filename,
+                media_type,
+                qr_scale,
+                qr_border,
+                allow_backslash
+            )
+        )
 
         self._filename = filename
         self._filename_path = "/" + filename
@@ -74,9 +82,6 @@ class QrFS(Operations):
             attrs = self._attr_file.copy()  # Not sure if .copy() can be omitted
             attrs["st_size"] = len(qr)
             return attrs
-
-        # if path[-1] == '.' and path.rstrip(".")[-1] == '/':
-        #     raise FuseOSError(errno.ENOENT)
 
         return self._attr_dir
 
